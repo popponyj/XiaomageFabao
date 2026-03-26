@@ -1,0 +1,21 @@
+{
+  "name": "xiaomage-fabao",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:server": "cd packages/server && npm run dev",
+    "build": "cd apps/web && npm run build",
+    "db:generate": "cd packages/server && npx prisma generate",
+    "db:migrate": "cd packages/server && npx prisma migrate dev",
+    "db:studio": "cd packages/server && npx prisma studio"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
