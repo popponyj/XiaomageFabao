@@ -15,7 +15,23 @@ export default function AppsPage() {
   const [showStoreModal, setShowStoreModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState<App | null>(null);
   const [editingStore, setEditingStore] = useState<StoreAccount | null>(null);
-  const [storeForm, setStoreForm] = useState({ storeType: '', storeName: '', email: '', privateKey: '', publicKey: '', desc: '', brief: '', updateDesc: '' });
+  const [storeForm, setStoreForm] = useState({
+    storeType: '',
+    storeName: '',
+    // 小米
+    email: '',
+    privateKey: '',
+    publicKey: '',
+    // 应用宝
+    userId: '',
+    yybAppId: '',
+    accessSecret: '',
+    // 通用
+    desc: '',
+    brief: '',
+    updateDesc: '',
+    feature: '',
+  });
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadingStore, setUploadingStore] = useState<StoreAccount | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -89,17 +105,35 @@ export default function AppsPage() {
       alert('请选择应用商店');
       return;
     }
-    if (!storeForm.email) {
-      alert('请填写开发者邮箱');
-      return;
-    }
-    if (!storeForm.privateKey && !editingStore) {
-      alert('请填写RSA私钥');
-      return;
-    }
-    if (!storeForm.publicKey && !editingStore) {
-      alert('请填写RSA公钥');
-      return;
+    
+    // 根据商店类型验证不同字段
+    const storeType = editingStore?.storeType || storeForm.storeType;
+    if (storeType === 'xiaomi') {
+      if (!storeForm.email) {
+        alert('请填写开发者邮箱');
+        return;
+      }
+      if (!storeForm.privateKey && !editingStore) {
+        alert('请填写访问密码');
+        return;
+      }
+      if (!storeForm.publicKey && !editingStore) {
+        alert('请填写RSA公钥');
+        return;
+      }
+    } else if (storeType === 'yingyongbao') {
+      if (!storeForm.userId) {
+        alert('请填写开发者用户ID');
+        return;
+      }
+      if (!storeForm.yybAppId) {
+        alert('请填写应用ID');
+        return;
+      }
+      if (!storeForm.accessSecret && !editingStore) {
+        alert('请填写接入密钥');
+        return;
+      }
     }
     
     try {
@@ -117,7 +151,20 @@ export default function AppsPage() {
       if (data.success) {
         setShowStoreModal(false);
         setEditingStore(null);
-        setStoreForm({ storeType: '', storeName: '', email: '', privateKey: '', publicKey: '', desc: '', brief: '', updateDesc: '' });
+        setStoreForm({ 
+          storeType: '', 
+          storeName: '', 
+          email: '',
+          privateKey: '', 
+          publicKey: '',
+          userId: '',
+          yybAppId: '',
+          accessSecret: '',
+          desc: '', 
+          brief: '', 
+          updateDesc: '',
+          feature: '',
+        });
         fetchApps();
       } else {
         alert(data.error || '保存失败');
@@ -202,30 +249,78 @@ export default function AppsPage() {
     setSelectedApp(app);
     if (store) {
       setEditingStore(store);
-      // 获取完整配置（包含私钥公钥）用于回显
+      // 获取完整配置（包含密钥）用于回显
       try {
         const res = await fetch(`${API_BASE_URL}/apps/${app.id}/store-accounts/${store.id}`);
         const data = await res.json();
         if (data.success) {
+          const account = data.data;
           setStoreForm({
-            storeType: data.data.storeType,
-            storeName: data.data.storeName,
-            email: data.data.email,
-            privateKey: data.data.privateKey || '',
-            publicKey: data.data.publicKey || '',
-            desc: data.data.desc || '',
-            brief: data.data.brief || '',
-            updateDesc: data.data.updateDesc || '',
+            storeType: account.storeType,
+            storeName: account.storeName,
+            // 小米
+            email: account.email || '',
+            privateKey: account.privateKey || '',
+            publicKey: account.publicKey || '',
+            // 应用宝
+            userId: account.userId || '',
+            yybAppId: account.yybAppId || '',
+            accessSecret: account.accessSecret || '',
+            // 通用
+            desc: account.desc || '',
+            brief: account.brief || '',
+            updateDesc: account.updateDesc || '',
+            feature: account.feature || '',
           });
         } else {
-          setStoreForm({ storeType: store.storeType, storeName: store.storeName, email: store.email, privateKey: '', publicKey: '', desc: '', brief: '', updateDesc: '' });
+          // 回退到基础显示
+          setStoreForm({ 
+            storeType: store.storeType, 
+            storeName: store.storeName, 
+            email: store.email || '',
+            privateKey: '', 
+            publicKey: '',
+            userId: store.userId || '',
+            yybAppId: store.yybAppId || '',
+            accessSecret: '',
+            desc: '', 
+            brief: '', 
+            updateDesc: '',
+            feature: '',
+          });
         }
       } catch {
-        setStoreForm({ storeType: store.storeType, storeName: store.storeName, email: store.email, privateKey: '', publicKey: '', desc: '', brief: '', updateDesc: '' });
+        setStoreForm({ 
+          storeType: store.storeType, 
+          storeName: store.storeName, 
+          email: store.email || '',
+          privateKey: '', 
+          publicKey: '',
+          userId: store.userId || '',
+          yybAppId: store.yybAppId || '',
+          accessSecret: '',
+          desc: '', 
+          brief: '', 
+          updateDesc: '',
+          feature: '',
+        });
       }
     } else {
       setEditingStore(null);
-      setStoreForm({ storeType: '', storeName: '', email: '', privateKey: '', publicKey: '', desc: '', brief: '', updateDesc: '' });
+      setStoreForm({ 
+        storeType: '', 
+        storeName: '', 
+        email: '',
+        privateKey: '', 
+        publicKey: '',
+        userId: '',
+        yybAppId: '',
+        accessSecret: '',
+        desc: '', 
+        brief: '', 
+        updateDesc: '',
+        feature: '',
+      });
     }
     setShowStoreModal(true);
   };
@@ -382,12 +477,33 @@ export default function AppsPage() {
                   </select>
                 </div>
               )}
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">开发者邮箱</label><input type="email" value={storeForm.email} onChange={e => setStoreForm({ ...storeForm, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">访问密码（开发者站"私钥"）</label><textarea value={storeForm.privateKey} onChange={e => setStoreForm({ ...storeForm, privateKey: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs" rows={2} required={!editingStore} placeholder="小米开发者站获取的访问密码（短字符串）" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">小米公钥</label><textarea value={storeForm.publicKey} onChange={e => setStoreForm({ ...storeForm, publicKey: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs" rows={3} required={!editingStore} placeholder="小米开发者站分配的RSA公钥（长base64字符串）" /></div>
+              {/* 小米商店配置 */}
+              {(editingStore?.storeType === 'xiaomi' || (!editingStore && storeForm.storeType === 'xiaomi')) && (
+                <>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">开发者邮箱 <span className="text-red-500">*</span></label><input type="email" value={storeForm.email} onChange={e => setStoreForm({ ...storeForm, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="example@email.com" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">访问密码（开发者站"私钥"）<span className="text-red-500">*</span></label><textarea value={storeForm.privateKey} onChange={e => setStoreForm({ ...storeForm, privateKey: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs" rows={2} placeholder="小米开发者站获取的访问密码（短字符串）" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">小米公钥 <span className="text-red-500">*</span></label><textarea value={storeForm.publicKey} onChange={e => setStoreForm({ ...storeForm, publicKey: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs" rows={3} placeholder="小米开发者站分配的RSA公钥（长base64字符串）" /></div>
+                </>
+              )}
+              
+              {/* 应用宝配置 */}
+              {(editingStore?.storeType === 'yingyongbao' || (!editingStore && storeForm.storeType === 'yingyongbao')) && (
+                <>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">开发者用户ID (user_id) <span className="text-red-500">*</span></label><input type="text" value={storeForm.userId} onChange={e => setStoreForm({ ...storeForm, userId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm" placeholder="在开放平台-账户管理-API发布接口查看" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">应用ID (app_id) <span className="text-red-500">*</span></label><input type="text" value={storeForm.yybAppId} onChange={e => setStoreForm({ ...storeForm, yybAppId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm" placeholder="在安卓应用管理-应用首页查看" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">接入密钥 (access_secret) <span className="text-red-500">*</span></label><textarea value={storeForm.accessSecret} onChange={e => setStoreForm({ ...storeForm, accessSecret: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs" rows={2} placeholder="在开放平台-API发布接口-申请开通后获取" /></div>
+                </>
+              )}
+              
+              {/* 通用字段 */}
               <div><label className="block text-sm font-medium text-gray-700 mb-1">应用详情</label><textarea value={storeForm.desc} onChange={e => setStoreForm({ ...storeForm, desc: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows={3} placeholder="应用详细介绍" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">一句话简介</label><input type="text" value={storeForm.brief} onChange={e => setStoreForm({ ...storeForm, brief: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="简短描述应用" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">更新说明</label><textarea value={storeForm.updateDesc} onChange={e => setStoreForm({ ...storeForm, updateDesc: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows={2} placeholder="本次版本更新内容" /></div>
+              {(editingStore?.storeType === 'xiaomi' || (!editingStore && storeForm.storeType === 'xiaomi')) && (
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">更新说明</label><textarea value={storeForm.updateDesc} onChange={e => setStoreForm({ ...storeForm, updateDesc: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows={2} placeholder="本次版本更新内容" /></div>
+              )}
+              {(editingStore?.storeType === 'yingyongbao' || (!editingStore && storeForm.storeType === 'yingyongbao')) && (
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">版本特性说明</label><textarea value={storeForm.feature} onChange={e => setStoreForm({ ...storeForm, feature: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" rows={2} placeholder="版本更新特性说明（应用宝）" /></div>
+              )}
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowStoreModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg">取消</button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg">保存</button>

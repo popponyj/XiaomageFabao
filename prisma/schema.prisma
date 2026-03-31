@@ -34,10 +34,15 @@ model StoreAccount {
   storeType   String   // xiaomi, huawei, oppo, vivo, honor, appgallery
   storeName   String   // 显示名称：小米、华为、OPPO、vivo、荣耀、应用宝
   
-  // 账号凭证
-  email       String   // 开发者邮箱
-  privateKey  String   // RSA私钥
-  publicKey   String   // RSA公钥
+  // 账号凭证 - 小米
+  email       String?  // 开发者邮箱（小米使用）
+  privateKey  String?  // RSA私钥/访问密码（小米使用）
+  publicKey   String?  // RSA公钥（小米使用）
+  
+  // 账号凭证 - 应用宝
+  userId       String?  // 开发者用户ID（应用宝使用）
+  yybAppId     String?  // 应用ID（应用宝使用）
+  accessSecret String?  // 接入密钥（应用宝使用）
   
   // 应用商店特定配置
   categoryId   String?  // 分类ID
@@ -47,6 +52,7 @@ model StoreAccount {
   brief        String?  // 一句话简介
   updateDesc   String?  // 更新说明
   privacyUrl   String?  // 隐私政策链接
+  feature      String?  // 版本特性说明（应用宝使用）
   
   // APK文件（每个商店可以有不同的APK）
   apkPath      String?  // APK路径

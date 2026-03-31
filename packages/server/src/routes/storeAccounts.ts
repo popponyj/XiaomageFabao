@@ -37,15 +37,43 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { appId } = req.params as { appId: string };
-    const { storeType, storeName, email, privateKey, publicKey } = req.body;
+    const { 
+      storeType, storeName, 
+      email, privateKey, publicKey,
+      userId, yybAppId, accessSecret,
+      desc, brief, updateDesc, feature 
+    } = req.body;
 
-    if (!storeType || !storeName || !email || !privateKey || !publicKey) {
+    if (!storeType || !storeName) {
       return res.status(400).json({ success: false, error: '缺少必填字段' });
     }
 
-    const account = await prisma.storeAccount.create({
-      data: { appId, storeType, storeName, email, privateKey, publicKey },
-    });
+    const data: any = { appId, storeType, storeName };
+    
+    // 根据商店类型存储不同凭证
+    if (storeType === 'xiaomi') {
+      if (!email || !privateKey || !publicKey) {
+        return res.status(400).json({ success: false, error: '小米商店需要邮箱、私钥和公钥' });
+      }
+      data.email = email;
+      data.privateKey = privateKey;
+      data.publicKey = publicKey;
+    } else if (storeType === 'yingyongbao') {
+      if (!userId || !yybAppId || !accessSecret) {
+        return res.status(400).json({ success: false, error: '应用宝需要用户ID、应用ID和接入密钥' });
+      }
+      data.userId = userId;
+      data.yybAppId = yybAppId;
+      data.accessSecret = accessSecret;
+    }
+    
+    // 通用字段
+    if (desc) data.desc = desc;
+    if (brief) data.brief = brief;
+    if (updateDesc) data.updateDesc = updateDesc;
+    if (feature) data.feature = feature;
+
+    const account = await prisma.storeAccount.create({ data });
 
     res.json({ success: true, data: account });
   } catch (error) {
@@ -58,7 +86,14 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const data: any = {};
-    const fields = ['storeName', 'email', 'privateKey', 'publicKey', 'categoryId', 'categoryName', 'keywords', 'desc', 'brief', 'updateDesc', 'privacyUrl', 'isActive', 'versionName', 'versionCode'];
+    const fields = [
+      'storeName', 
+      'email', 'privateKey', 'publicKey',
+      'userId', 'yybAppId', 'accessSecret',
+      'categoryId', 'categoryName', 'keywords', 
+      'desc', 'brief', 'updateDesc', 'feature', 'privacyUrl', 
+      'isActive', 'versionName', 'versionCode'
+    ];
     fields.forEach(f => { if (req.body[f] !== undefined) data[f] = req.body[f]; });
 
     const account = await prisma.storeAccount.update({ where: { id: req.params.id }, data });

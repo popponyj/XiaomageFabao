@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { prisma } from '../utils/prisma';
 import { XiaomiApiClient } from '../services/xiaomi-api';
+import { YingyongbaoApiClient } from '../services/yingyongbao-api';
+import { getFileMD5 } from '../utils/yingyongbao-signature';
 
 const router = Router();
 
@@ -78,7 +80,7 @@ router.post('/', async (req, res) => {
         if (!storeAccount.publicKey) {
           return res.status(400).json({ success: false, error: '缺少小米公钥证书，请先编辑商店配置添加公钥' });
         }
-        const client = new XiaomiApiClient(storeAccount.email, storeAccount.privateKey, storeAccount.publicKey);
+        const client = new XiaomiApiClient(storeAccount.email!, storeAccount.privateKey!, storeAccount.publicKey!);
         const result = await client.pushApp({
           packageName: storeAccount.app.packageName,
           appName: storeAccount.app.name,
@@ -112,7 +114,73 @@ router.post('/', async (req, res) => {
         });
         res.status(500).json({ success: false, error: `发布失败: ${apiError.message}` });
       }
-    } else {
+    }
+    // 应用宝发布
+    else if (storeAccount.storeType === 'yingyongbao') {
+      try {
+        if (!storeAccount.userId || !storeAccount.yybAppId || !storeAccount.accessSecret) {
+          return res.status(400).json({ success: false, error: '缺少应用宝账号配置，请先编辑商店配置添加用户ID、应用ID和接入密钥' });
+        }
+
+        const client = new YingyongbaoApiClient(storeAccount.userId, storeAccount.accessSecret);
+
+        // 1. 获取文件上传信息（获取COS预签名URL和流水号）
+        const fileName = storeAccount.apkPath.split('/').pop() || 'app.apk';
+        const uploadInfo = await client.getFileUploadInfo(
+          storeAccount.yybAppId,
+          storeAccount.app.packageName,
+          'apk',
+          fileName
+        );
+
+        if (uploadInfo.ret !== 0) {
+          throw new Error(`获取上传信息失败: ${uploadInfo.msg}`);
+        }
+        
+        if (!uploadInfo.pre_sign_url || !uploadInfo.serial_number) {
+          throw new Error('获取上传信息返回数据不完整');
+        }
+
+        // 2. 上传APK到腾讯云COS
+        await client.uploadFileToCos(uploadInfo.pre_sign_url, storeAccount.apkPath);
+
+        // 3. 计算APK的MD5
+        const apkMd5 = getFileMD5(storeAccount.apkPath);
+
+        // 4. 调用应用更新接口
+        const updateResult = await client.updateApp({
+          pkgName: storeAccount.app.packageName,
+          appId: storeAccount.yybAppId,
+          appName: storeAccount.app.name,
+          category: storeAccount.categoryId ? parseInt(storeAccount.categoryId) : undefined,
+          introduce: storeAccount.desc || undefined,
+          oneWordSummary: storeAccount.brief || undefined,
+          feature: storeAccount.feature || undefined,
+          deployType: 1, // 审核通过后立即发布
+          apk32FileSerialNumber: uploadInfo.serial_number,
+          apk32FileMd5: apkMd5,
+        });
+
+        // 更新发布记录状态
+        const isSuccess = updateResult.ret === 0;
+        await prisma.releaseRecord.update({
+          where: { id: release.id },
+          data: {
+            status: isSuccess ? 'success' : 'failed',
+            message: updateResult.msg,
+          },
+        });
+
+        res.json({ success: isSuccess, data: updateResult });
+      } catch (apiError: any) {
+        await prisma.releaseRecord.update({
+          where: { id: release.id },
+          data: { status: 'failed', message: apiError.message },
+        });
+        res.status(500).json({ success: false, error: `发布失败: ${apiError.message}` });
+      }
+    }
+    else {
       res.status(400).json({ success: false, error: '暂不支持该应用商店' });
     }
   } catch (error) {
@@ -141,7 +209,7 @@ router.get('/store-version/:storeAccountId', async (req, res) => {
         if (!storeAccount.publicKey) {
           return res.status(400).json({ success: false, error: '缺少小米公钥证书' });
         }
-        const client = new XiaomiApiClient(storeAccount.email, storeAccount.privateKey, storeAccount.publicKey);
+        const client = new XiaomiApiClient(storeAccount.email!, storeAccount.privateKey!, storeAccount.publicKey!);
         const result = await client.queryApp(storeAccount.app.packageName);
 
         // 解析返回的版本信息
@@ -172,7 +240,46 @@ router.get('/store-version/:storeAccountId', async (req, res) => {
       } catch (apiError: any) {
         res.status(500).json({ success: false, error: `查询失败: ${apiError.message}` });
       }
-    } else {
+    }
+    // 应用宝查询
+    else if (storeAccount.storeType === 'yingyongbao') {
+      try {
+        if (!storeAccount.userId || !storeAccount.yybAppId || !storeAccount.accessSecret) {
+          return res.status(400).json({ success: false, error: '缺少应用宝账号配置' });
+        }
+
+        const client = new YingyongbaoApiClient(storeAccount.userId, storeAccount.accessSecret);
+        const result = await client.queryAppDetail(
+          storeAccount.yybAppId,
+          storeAccount.app.packageName
+        );
+
+        // 应用宝API返回结构: { ret: 0, msg: "", ...应用详情字段 }
+        let storeVersionName = null;
+        if (result.ret === 0) {
+          // 应用宝API没有直接返回版本号，需要通过查询更新审核状态来获取
+          const statusResult = await client.queryAppUpdateStatus(
+            storeAccount.yybAppId,
+            storeAccount.app.packageName
+          );
+          // 应用宝无法直接获取线上版本，返回空
+          storeVersionName = null;
+        }
+
+        res.json({
+          success: true,
+          data: {
+            storeVersionName,
+            packageName: storeAccount.app.packageName,
+            rawResponse: result,
+            note: '应用宝API暂不支持直接查询线上版本',
+          },
+        });
+      } catch (apiError: any) {
+        res.status(500).json({ success: false, error: `查询失败: ${apiError.message}` });
+      }
+    }
+    else {
       res.status(400).json({ success: false, error: '暂不支持该应用商店' });
     }
   } catch (error) {

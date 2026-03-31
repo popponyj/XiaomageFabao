@@ -15,6 +15,8 @@ router.get('/', async (req, res) => {
             storeName: true,
             isActive: true,
             email: true,
+            userId: true,
+            yybAppId: true,
             versionName: true,
             versionCode: true,
             storeVersionName: true,

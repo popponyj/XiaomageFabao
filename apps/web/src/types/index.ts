@@ -12,17 +12,24 @@ export interface App {
 export interface StoreAccount {
   id: string;
   appId: string;
-  storeType: string;  // xiaomi, huawei, oppo, vivo, honor, appgallery
-  storeName: string;  // 小米、华为、OPPO、vivo、荣耀、应用宝
-  email: string;
-  privateKey: string;
-  publicKey: string;
+  storeType: string;  // xiaomi, yingyongbao, huawei, oppo, vivo, honor
+  storeName: string;  // 小米、应用宝、华为、OPPO、vivo、荣耀
+  // 小米账号凭证
+  email?: string;
+  privateKey?: string;
+  publicKey?: string;
+  // 应用宝账号凭证
+  userId?: string;
+  yybAppId?: string;
+  accessSecret?: string;
+  // 商店配置
   categoryId: string | null;
   categoryName: string | null;
   keywords: string | null;
   desc: string | null;
   brief: string | null;
   privacyUrl: string | null;
+  // APK信息
   apkPath: string | null;
   versionName: string | null;  // 本地上传的APK版本
   versionCode: string | null;
@@ -49,9 +56,9 @@ export interface ReleaseRecord {
 // 应用商店选项
 export const STORE_OPTIONS = [
   { type: 'xiaomi', name: '小米', color: '#FF6900' },
+  { type: 'yingyongbao', name: '应用宝', color: '#00A1FF' },
   { type: 'huawei', name: '华为', color: '#CF0A2C' },
   { type: 'oppo', name: 'OPPO', color: '#008B5C' },
   { type: 'vivo', name: 'vivo', color: '#415FFF' },
   { type: 'honor', name: '荣耀', color: '#00BFFF' },
-  { type: 'appgallery', name: '应用宝', color: '#00A1FF' },
 ];
